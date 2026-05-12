@@ -1,0 +1,9 @@
+# Day 1 — Database & data generation
+faker==30.3.0
+python-dotenv==1.0.1
+
+# Day 1 — Useful for development
+ipython==8.27.0
+
+# Day 1 — LLM client (Groq free tier)
+groq==1.2.0
