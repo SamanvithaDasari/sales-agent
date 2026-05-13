@@ -16,12 +16,11 @@ ARCHITECTURE NOTES (interview hooks):
 - Normalization: we L2-normalize all vectors before indexing, so inner product
   == cosine similarity. This is the standard trick to use FAISS's fast IP search
   for what is really cosine search.
-- Persistence: index + metadata are pickled to disk. Re-embedding 660 notes
+- Persistence: index + metadata are jsoned to disk. Re-embedding 660 notes
   takes ~10 seconds; loading from disk takes <1 second.
 """
 
 import json
-import pickle
 import sqlite3
 import sys
 from dataclasses import dataclass, asdict
@@ -39,7 +38,7 @@ PROJECT_ROOT = HERE.parent
 DB_PATH = PROJECT_ROOT / "db" / "salesagent.db"
 INDEX_DIR = PROJECT_ROOT / "db" / "rag_index"
 INDEX_PATH = INDEX_DIR / "activities.faiss"
-META_PATH = INDEX_DIR / "activities.meta.pkl"
+META_PATH = INDEX_DIR / "activities.meta.json"
 
 MODEL_NAME = "all-MiniLM-L6-v2"
 EMBEDDING_DIM = 384  # MiniLM-L6's output dimension
@@ -152,8 +151,8 @@ def build_index() -> None:
     # Persist both the index and the metadata side-by-side
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
     faiss.write_index(index, str(INDEX_PATH))
-    with open(META_PATH, "wb") as f:
-        pickle.dump(records, f)
+    with open(META_PATH, "w") as f:
+        json.dump([asdict(r) for r in records], f)
 
     print(f"✅ Index saved to {INDEX_PATH}")
     print(f"✅ Metadata saved to {META_PATH}")
@@ -175,8 +174,9 @@ def _load_index() -> tuple[faiss.Index, list[ActivityRecord]]:
                 f"No index at {INDEX_PATH}. Run: python -m tools.rag --rebuild"
             )
         _index_cache = faiss.read_index(str(INDEX_PATH))
-        with open(META_PATH, "rb") as f:
-            _meta_cache = pickle.load(f)
+        with open(META_PATH, "r") as f:
+            raw = json.load(f)
+        _meta_cache = [ActivityRecord(**r) for r in raw]
     return _index_cache, _meta_cache
 
 
