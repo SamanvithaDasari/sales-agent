@@ -44,7 +44,7 @@ load_dotenv()
 # ============================================================
 # CONFIG
 # ============================================================
-MODEL = "gemini-2.5-flash"
+MODEL = "gemini-2.5-flash-lite"
 MAX_ITERATIONS = 8           # hard cap on the loop
 THINKING_BUDGET = 1024       # let Gemini reason internally; we still see actions
 
@@ -117,9 +117,9 @@ class Trace:
 import time
 from google.genai import errors as genai_errors
 
-def _generate_with_retry(messages, max_attempts: int = 4) -> Any:
-    """Call Gemini with exponential backoff on 503/429."""
-    delay = 2.0
+def _generate_with_retry(messages, max_attempts: int = 5) -> Any:
+    """Call Gemini with exponential backoff. Respects server-side retry hints when present."""
+    delay = 5.0
     for attempt in range(1, max_attempts + 1):
         try:
             return client.models.generate_content(
@@ -134,21 +134,29 @@ def _generate_with_retry(messages, max_attempts: int = 4) -> Any:
                     automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
                 ),
             )
-        except genai_errors.ServerError as e:
+        except (genai_errors.ServerError, genai_errors.ClientError) as e:
             if attempt == max_attempts:
                 raise
-            print(f"   ⚠️  Gemini {e.code} on attempt {attempt}; retrying in {delay:.0f}s...")
-            time.sleep(delay)
-            delay *= 2  # exponential: 2s, 4s, 8s
-        except genai_errors.ClientError as e:
-            # 429 (rate limit) gets the same backoff treatment
-            if e.code == 429 and attempt < max_attempts:
-                print(f"   ⚠️  Rate limited on attempt {attempt}; retrying in {delay:.0f}s...")
-                time.sleep(delay)
-                delay *= 2
-                continue
-            raise
+            # Server may tell us exactly how long to wait — respect it
+            server_hint = _parse_retry_delay(e)
+            wait = max(server_hint or 0, delay)
+            print(f"   ⚠️  Gemini {e.code} on attempt {attempt}; retrying in {wait:.0f}s...")
+            time.sleep(wait)
+            delay *= 2  # exponential fallback if no hint
 
+
+def _parse_retry_delay(err) -> float | None:
+    """Extract Google's suggested retry delay from a quota/rate error, if present."""
+    try:
+        msg = str(err)
+        # The error message contains 'Please retry in 20.285981189s.'
+        import re
+        m = re.search(r"retry in ([\d.]+)s", msg)
+        if m:
+            return float(m.group(1))
+    except Exception:
+        pass
+    return None
 def run_deal_coach(user_query: str, verbose: bool = True) -> tuple[str, list[Trace]]:
     """
     Run the Deal Coach ReAct loop for a user query.

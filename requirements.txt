@@ -21,3 +21,7 @@ numpy<2
 
 # Day 3 — Second LLM (Gemini) for Deal Coach
 google-genai==2.2.0
+
+# Day 4 — HTTP API
+fastapi==0.115.6
+uvicorn[standard]==0.32.1
