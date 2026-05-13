@@ -25,3 +25,9 @@ google-genai==2.2.0
 # Day 4 — HTTP API
 fastapi==0.115.6
 uvicorn[standard]==0.32.1
+
+
+# Day 5 — UI
+streamlit==1.40.2
+requests==2.32.3
+REQS_EOF
