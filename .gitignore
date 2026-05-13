@@ -225,3 +225,7 @@ __marimo__/
 # Project artifacts
 db/salesagent.db
 *.db
+
+
+# RAG index (regenerable via: python -m tools.rag --rebuild)
+db/rag_index/
