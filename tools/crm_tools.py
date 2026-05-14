@@ -1,3 +1,4 @@
+import os
 """
 crm_tools.py — Tools the CRM agents can call.
 
@@ -19,7 +20,7 @@ from pathlib import Path
 from crewai.tools import tool
 
 # Resolve DB path relative to project root, regardless of where the script runs from
-DB_PATH = Path(__file__).parent.parent / "db" / "salesagent.db"
+DB_PATH = Path(os.environ["SALESAGENT_DATA_DIR"]) / "salesagent.db" if "SALESAGENT_DATA_DIR" in os.environ else Path(__file__).parent.parent / "db" / "salesagent.db"
 
 
 def _connect() -> sqlite3.Connection:

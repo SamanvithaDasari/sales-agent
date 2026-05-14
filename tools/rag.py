@@ -1,3 +1,4 @@
+import os
 """
 rag.py — RAG index over CRM activity notes.
 
@@ -35,8 +36,8 @@ from sentence_transformers import SentenceTransformer
 # ============================================================
 HERE = Path(__file__).parent
 PROJECT_ROOT = HERE.parent
-DB_PATH = PROJECT_ROOT / "db" / "salesagent.db"
-INDEX_DIR = PROJECT_ROOT / "db" / "rag_index"
+DB_PATH = Path(os.environ["SALESAGENT_DATA_DIR"]) / "salesagent.db" if "SALESAGENT_DATA_DIR" in os.environ else PROJECT_ROOT / "db" / "salesagent.db"
+INDEX_DIR = (Path(os.environ["SALESAGENT_DATA_DIR"]) / "rag_index") if "SALESAGENT_DATA_DIR" in os.environ else (PROJECT_ROOT / "db" / "rag_index")
 INDEX_PATH = INDEX_DIR / "activities.faiss"
 META_PATH = INDEX_DIR / "activities.meta.json"
 

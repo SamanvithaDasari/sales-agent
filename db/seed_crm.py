@@ -32,7 +32,8 @@ Faker.seed(RANDOM_SEED)
 # Resolve paths relative to this file's location, NOT the working directory.
 # This makes the script work whether you run it from project root or db/.
 HERE = Path(__file__).parent
-DB_PATH = HERE / "salesagent.db"
+DB_PATH = (Path(os.environ["SALESAGENT_DATA_DIR"]) / "salesagent.db") if "SALESAGENT_DATA_DIR" in os.environ else (HERE / "salesagent.db")
+DB_PATH.parent.mkdir(parents=True, exist_ok=True)
 SCHEMA_PATH = HERE / "schema.sql"
 
 # ============================================================

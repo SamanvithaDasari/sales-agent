@@ -1,3 +1,4 @@
+import os
 """
 coach_tools.py — Tools the Deal Coach agent can call.
 
@@ -20,7 +21,7 @@ from pathlib import Path
 
 from tools.rag import find_similar_activities
 
-DB_PATH = Path(__file__).parent.parent / "db" / "salesagent.db"
+DB_PATH = Path(os.environ["SALESAGENT_DATA_DIR"]) / "salesagent.db" if "SALESAGENT_DATA_DIR" in os.environ else Path(__file__).parent.parent / "db" / "salesagent.db"
 
 
 def _connect() -> sqlite3.Connection:
