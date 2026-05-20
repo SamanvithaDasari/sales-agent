@@ -59,10 +59,11 @@ with st.sidebar:
     st.header("Agent")
     agent_choice = st.radio(
         "Which agent do you want to talk to?",
-        ["Lead Intel", "Deal Coach"],
+        ["Lead Intel", "Deal Coach", "Pipeline Analyst"],
         captions=[
             "Pre-call briefs for a company (~5s)",
             "Why is this deal stuck? Recommend next steps (~30-60s)",
+            "Ask anything about your pipeline — NL to SQL (~10s)",
         ],
     )
 
@@ -74,11 +75,18 @@ with st.sidebar:
             "What's going on with Pacheco-Smith?",
             "Brief me on Cohen Inc before my call",
         ]
-    else:
+    elif agent_choice == "Deal Coach":
         samples = [
             "Why is the Inc Streamline Magnetic Channels deal stuck?",
             "How should I unstick the and Sons Enable Sticky Eyeballs deal?",
             "What's blocking PLC Generate Vertical Architectures?",
+        ]
+    else:  # Pipeline Analyst
+        samples = [
+            "How many deals do we have at each stage?",
+            "Top 5 open deals in negotiation",
+            "Which industries have the most accounts?",
+            "Show me deals worth over $100,000",
         ]
     for s in samples:
         if st.button(s, key=f"sample_{s}", use_container_width=True):
@@ -150,10 +158,14 @@ if prompt:
         endpoint = f"{API_BASE}/lead-intel"
         timeout = TIMEOUT_LEAD_INTEL
         spinner_msg = "📋 Pulling the brief..."
-    else:
+    elif agent_choice == "Deal Coach":
         endpoint = f"{API_BASE}/deal-coach"
         timeout = TIMEOUT_DEAL_COACH
         spinner_msg = "🧠 Running the ReAct loop — this takes ~30-60s..."
+    else:  # Pipeline Analyst
+        endpoint = f"{API_BASE}/pipeline-analyst"
+        timeout = 60
+        spinner_msg = "🔍 Translating to SQL and running the query..."
 
     with st.chat_message("assistant"):
         with st.spinner(spinner_msg):
@@ -178,9 +190,36 @@ if prompt:
         if agent_choice == "Lead Intel":
             answer = data["brief"]
             trace = None
-        else:
+        elif agent_choice == "Deal Coach":
             answer = data["answer"]
             trace = data.get("trace", [])
+        else:  # Pipeline Analyst
+            # Build a markdown response from narration + table + SQL
+            narration = data.get("narration", "")
+            sql = data.get("sql", "")
+            rows = data.get("rows", [])
+            columns = data.get("columns", [])
+            row_count = data.get("row_count", 0)
+
+            parts = []
+            if data.get("error"):
+                parts.append(f"⚠️ {data['error']}")
+            if narration:
+                parts.append(narration)
+            if rows:
+                # Render rows as a markdown table
+                header = "| " + " | ".join(columns) + " |"
+                sep = "| " + " | ".join("---" for _ in columns) + " |"
+                body_rows = [
+                    "| " + " | ".join(str(r.get(c, "")) for c in columns) + " |"
+                    for r in rows
+                ]
+                parts.append("\n".join([header, sep, *body_rows]))
+                parts.append(f"_{row_count} row{'s' if row_count != 1 else ''}._")
+            if sql:
+                parts.append(f"<details><summary>📜 SQL</summary>\n\n```sql\n{sql}\n```\n</details>")
+            answer = "\n\n".join(parts)
+            trace = None
 
         meta = {
             "elapsed_seconds": data.get("elapsed_seconds", "?"),

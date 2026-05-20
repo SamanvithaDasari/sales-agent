@@ -26,6 +26,8 @@ from pydantic import BaseModel, Field
 
 from agents.lead_intel import run_lead_intel
 from agents.deal_coach import run_deal_coach
+from agents.pipeline_analyst import run_pipeline_analyst
+
 
 
 # ============================================================
@@ -87,6 +89,26 @@ class DealCoachResponse(BaseModel):
     iterations: int
     elapsed_seconds: float
 
+class PipelineAnalystRequest(BaseModel):
+    query: str = Field(
+        ...,
+        min_length=2,
+        max_length=500,
+        description="Natural-language question about the CRM data",
+        examples=["Top 5 open deals in negotiation"],
+    )
+
+
+class PipelineAnalystResponse(BaseModel):
+    narration: str = Field(description="Plain-English summary of the results")
+    sql: str = Field(description="The SQL that was generated and executed")
+    explanation: str = Field(description="One-sentence description of what the SQL does")
+    columns: list[str] = Field(description="Column names of the result set")
+    rows: list[dict[str, Any]] = Field(description="Result rows (capped at 100)")
+    row_count: int = Field(description="Number of rows returned")
+    error: str | None = Field(default=None, description="Error message if anything failed")
+    elapsed_seconds: float
+
 
 # ============================================================
 # ENDPOINTS
@@ -145,5 +167,31 @@ def deal_coach(req: DealCoachRequest) -> DealCoachResponse:
             for t in trace
         ],
         iterations=len(trace),
+        elapsed_seconds=round(elapsed, 2),
+    )
+
+@app.post("/pipeline-analyst", response_model=PipelineAnalystResponse)
+def pipeline_analyst(req: PipelineAnalystRequest) -> PipelineAnalystResponse:
+    """
+    Run the NL-to-SQL Pipeline Analyst agent.
+
+    Pipeline: Gemini generates safe SQL → validator + read-only executor →
+    Groq narrates results. Typical latency: ~5-8 seconds.
+    """
+    start = time.perf_counter()
+    try:
+        result = run_pipeline_analyst(req.query)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline Analyst failed: {e}")
+    elapsed = time.perf_counter() - start
+
+    return PipelineAnalystResponse(
+        narration=result.narration,
+        sql=result.sql,
+        explanation=result.explanation,
+        columns=result.columns,
+        rows=result.rows,
+        row_count=len(result.rows),
+        error=result.error,
         elapsed_seconds=round(elapsed, 2),
     )
